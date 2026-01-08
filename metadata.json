@@ -1,0 +1,5 @@
+{
+  "name": "Crypto DCA Assistant",
+  "description": "An advanced cryptocurrency DCA (Dollar Cost Averaging) tracker and analyzer with 1-hour candlestick views, AI-powered insights, and Telegram notification integration.",
+  "requestFramePermissions": []
+}
