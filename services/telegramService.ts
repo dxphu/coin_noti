@@ -9,24 +9,28 @@ export const sendTelegramAlert = async (
 ): Promise<boolean> => {
   if (!config.botToken || !config.chatId) return false;
 
+  const sentimentIcon = analysis.sentiment === 'Bullish' ? '🟢' : analysis.sentiment === 'Bearish' ? '🔴' : '⚪';
+  
   const message = `
-🚀 *Crypto DCA Alert: ${coinName}*
-💰 Giá hiện tại: $${price.toLocaleString()}
-📊 Tâm lý: ${analysis.sentiment === 'Bullish' ? '🟢 Bullish' : analysis.sentiment === 'Bearish' ? '🔴 Bearish' : '⚪ Neutral'}
-🎯 Khuyến nghị: *${analysis.recommendation}*
+🎯 *TÍN HIỆU SPOT: ${coinName.toUpperCase()}*
+💰 Giá: $${price.toLocaleString()}
+📊 Tâm lý: ${sentimentIcon} ${analysis.sentiment}
+🧩 Mô hình: *${analysis.detectedPattern}*
 
-📍 *Chiến lược giao dịch:*
-🟢 Entry: *$${analysis.entryPoint.toLocaleString()}*
-🎁 Take Profit: *$${analysis.takeProfit.toLocaleString()}*
-🛡️ Stop Loss: *$${analysis.stopLoss.toLocaleString()}*
+🔥 *KHUYẾN NGHỊ: ${analysis.recommendation}*
 
-💡 *Nhận định:*
-${analysis.reasoning}
+📍 *Chiến lược:*
+🟢 Vào lệnh: *$${analysis.entryPoint.toLocaleString()}*
+🎁 Mục tiêu (TP): *$${analysis.takeProfit.toLocaleString()}*
+🛡️ Bảo vệ (SL): *$${analysis.stopLoss.toLocaleString()}*
+
+💡 *Phân tích kỹ thuật:*
+_${analysis.reasoning}_
 
 📉 Hỗ trợ: $${analysis.supportLevel.toLocaleString()}
 📈 Kháng cự: $${analysis.resistanceLevel.toLocaleString()}
 
-_Hệ thống quét 100 nến 1h - AI Assistant_
+_Bot AI quét 100 nến 1H - Binance Data_
   `;
 
   const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;

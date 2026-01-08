@@ -24,6 +24,7 @@ export interface TelegramConfig {
 export interface AnalysisResult {
   sentiment: 'Bullish' | 'Bearish' | 'Neutral';
   recommendation: 'BUY (DCA)' | 'HOLD' | 'WAIT';
+  detectedPattern: string; // Tên mô hình nến hoặc kỹ thuật được phát hiện
   reasoning: string;
   supportLevel: number;
   resistanceLevel: number;

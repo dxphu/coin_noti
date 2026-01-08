@@ -6,29 +6,26 @@ export const analyzeMarketForDCA = async (
   coinName: string, 
   candles: CandleData[]
 ): Promise<AnalysisResult> => {
-  // BẮT BUỘC sử dụng process.env.API_KEY
-  const ai = new GoogleGenAI({ apiKey: "AIzaSyADWfQXkQeleCdFu56oeHC3YD-xnWb2lMk" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Rút gọn dữ liệu nến để không vượt quá giới hạn context của AI
+  // Lấy dữ liệu 100 nến nhưng tập trung vào 20 nến cuối để soi mô hình
   const dataString = candles
-    .slice(-50) // Lấy 50 nến gần nhất để phân tích sâu
-    .filter((_, index) => index % 2 === 0) 
-    .map(c => `[${c.time}] O:${c.open.toFixed(2)} C:${c.close.toFixed(2)}`)
+    .slice(-40) 
+    .map(c => `[${c.time}] O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)}`)
     .join(' | ');
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Bạn là một chuyên gia phân tích kỹ thuật tiền điện tử. Hãy phân tích dữ liệu 100 giờ gần đây của ${coinName}.
-    
-    Dữ liệu giá: ${dataString}
-    Giá hiện tại: ${candles[candles.length - 1].close.toFixed(2)}
+    contents: `Bạn là một chuyên gia phân tích kỹ thuật theo trường phái Price Action (Hành động giá). 
+    Dữ liệu 40 giờ gần nhất của ${coinName}: ${dataString}
 
     Nhiệm vụ:
-    1. Xác định xu hướng (Sentiment).
-    2. Đưa ra chiến lược DCA: Điểm mua (Entry), Chốt lời (TP), Cắt lỗ (SL).
-    3. Khuyến nghị: BUY (DCA), HOLD, hoặc WAIT.
-    
-    Phản hồi bằng JSON.`,
+    1. Soi kỹ các mô hình nến (Candlestick Patterns) như: Bullish Engulfing, Hammer, Morning Star, Double Bottom, Inverted Head and Shoulders, hoặc RSI Divergence (nếu suy luận được).
+    2. Chỉ được đưa ra khuyến nghị "BUY (DCA)" khi và chỉ khi có mô hình nến/kỹ thuật đảo chiều tăng giá RÕ RÀNG.
+    3. Nếu không có mô hình nào khớp hoặc xu hướng đang giảm mạnh không có dấu hiệu dừng, hãy khuyến nghị "WAIT" hoặc "HOLD". Tuyệt đối không được "phím kèo" bừa bãi.
+    4. Đối với Spot: Tập trung vào các vùng hỗ trợ mạnh.
+
+    Yêu cầu JSON output chính xác theo cấu hình.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -36,14 +33,15 @@ export const analyzeMarketForDCA = async (
         properties: {
           sentiment: { type: Type.STRING, enum: ['Bullish', 'Bearish', 'Neutral'] },
           recommendation: { type: Type.STRING, enum: ['BUY (DCA)', 'HOLD', 'WAIT'] },
-          reasoning: { type: Type.STRING },
+          detectedPattern: { type: Type.STRING, description: "Tên mô hình nến phát hiện được (ví dụ: Bullish Engulfing)" },
+          reasoning: { type: Type.STRING, description: "Giải thích tại sao khớp mô hình này" },
           supportLevel: { type: Type.NUMBER },
           resistanceLevel: { type: Type.NUMBER },
           entryPoint: { type: Type.NUMBER },
           takeProfit: { type: Type.NUMBER },
           stopLoss: { type: Type.NUMBER }
         },
-        required: ['sentiment', 'recommendation', 'reasoning', 'supportLevel', 'resistanceLevel', 'entryPoint', 'takeProfit', 'stopLoss']
+        required: ['sentiment', 'recommendation', 'detectedPattern', 'reasoning', 'supportLevel', 'resistanceLevel', 'entryPoint', 'takeProfit', 'stopLoss']
       }
     }
   });
