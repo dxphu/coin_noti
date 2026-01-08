@@ -1,45 +1,50 @@
+import { CandleData, CoinInfo } from '../types.ts';
 
-import { CandleData, CoinInfo } from '../types';
+const BINANCE_BASE_URL = 'https://api.binance.com/api/v3';
 
-const MOCK_COINS: CoinInfo[] = [
-  { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin', current_price: 65420.50, price_change_percentage_24h: 2.5 },
-  { id: 'ethereum', symbol: 'eth', name: 'Ethereum', current_price: 3450.20, price_change_percentage_24h: -1.2 },
-  { id: 'solana', symbol: 'sol', name: 'Solana', current_price: 145.75, price_change_percentage_24h: 5.8 },
-  { id: 'binancecoin', symbol: 'bnb', name: 'BNB', current_price: 590.30, price_change_percentage_24h: 0.4 },
-  { id: 'cardano', symbol: 'ada', name: 'Cardano', current_price: 0.45, price_change_percentage_24h: -2.1 },
-];
+// Danh sách các cặp tiền phổ biến trên Binance
+const TARGET_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT'];
 
 export const getTopCoins = async (): Promise<CoinInfo[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_COINS), 800);
-  });
+  try {
+    const response = await fetch(`${BINANCE_BASE_URL}/ticker/24hr`);
+    const data = await response.json();
+    
+    const filtered = data.filter((item: any) => TARGET_SYMBOLS.includes(item.symbol));
+    
+    return filtered.map((item: any) => ({
+      id: item.symbol,
+      symbol: item.symbol.replace('USDT', '').toLowerCase(),
+      name: item.symbol.replace('USDT', ''),
+      current_price: parseFloat(item.lastPrice),
+      price_change_percentage_24h: parseFloat(item.priceChangePercent)
+    }));
+  } catch (error) {
+    console.error("Binance API Error (Top Coins):", error);
+    return [];
+  }
 };
 
-export const get1hCandles = async (coinId: string): Promise<CandleData[]> => {
-  // Tăng lên 100 nến 1h (~4.1 ngày dữ liệu)
-  const basePrice = MOCK_COINS.find(c => c.id === coinId)?.current_price || 100;
-  const data: CandleData[] = [];
-  const now = new Date();
-  
-  let currentPrice = basePrice * 0.95; // Bắt đầu từ giá thấp hơn để tạo trend
-  
-  for (let i = 100; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-    const volatility = currentPrice * 0.015;
-    const open = currentPrice;
-    const close = open + (Math.random() - 0.45) * volatility; // Hơi bias đi lên một chút
-    const high = Math.max(open, close) + Math.random() * volatility * 0.3;
-    const low = Math.min(open, close) - Math.random() * volatility * 0.3;
+export const get1hCandles = async (symbol: string): Promise<CandleData[]> => {
+  try {
+    // Tăng limit lên 100 để có đủ dữ liệu vẽ biểu đồ
+    const response = await fetch(`${BINANCE_BASE_URL}/klines?symbol=${symbol}&interval=1h&limit=100`);
+    if (!response.ok) throw new Error("Failed to fetch klines");
+    const data = await response.json();
     
-    data.push({
-      time: i % 12 === 0 ? `${time.getDate()}/${time.getMonth() + 1} ${time.getHours()}h` : `${time.getHours()}:00`,
-      open,
-      high,
-      low,
-      close,
-      volume: Math.random() * 1000
+    return data.map((d: any) => {
+      const date = new Date(d[0]);
+      return {
+        time: `${date.getHours()}h ${date.getDate()}/${date.getMonth() + 1}`,
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5])
+      };
     });
-    currentPrice = close;
+  } catch (error) {
+    console.error("Binance API Error (Candles):", error);
+    return [];
   }
-  return data;
 };

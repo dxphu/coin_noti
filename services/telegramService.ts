@@ -1,5 +1,5 @@
 
-import { TelegramConfig, AnalysisResult } from "../types";
+import { TelegramConfig, AnalysisResult } from "../types.ts";
 
 export const sendTelegramAlert = async (
   config: TelegramConfig,

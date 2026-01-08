@@ -1,32 +1,32 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { CandleData, AnalysisResult } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: "AIzaSyADWfQXkQeleCdFu56oeHC3YD-xnWb2lMk" });
+import { CandleData, AnalysisResult } from "../types.ts";
 
 export const analyzeMarketForDCA = async (
   coinName: string, 
   candles: CandleData[]
 ): Promise<AnalysisResult> => {
+  // BẮT BUỘC sử dụng process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: "AIzaSyADWfQXkQeleCdFu56oeHC3YD-xnWb2lMk" });
+  
+  // Rút gọn dữ liệu nến để không vượt quá giới hạn context của AI
   const dataString = candles
+    .slice(-50) // Lấy 50 nến gần nhất để phân tích sâu
     .filter((_, index) => index % 2 === 0) 
-    .map(c => `[${c.time}] C:${c.close.toFixed(2)}`)
+    .map(c => `[${c.time}] O:${c.open.toFixed(2)} C:${c.close.toFixed(2)}`)
     .join(' | ');
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Bạn là một chuyên gia phân tích kỹ thuật tiền điện tử lão luyện. Hãy phân tích 100 nến 1 giờ của ${coinName}.
+    contents: `Bạn là một chuyên gia phân tích kỹ thuật tiền điện tử. Hãy phân tích dữ liệu 100 giờ gần đây của ${coinName}.
     
-    Dữ liệu giá (mỗi 2 giờ): ${dataString}
+    Dữ liệu giá: ${dataString}
     Giá hiện tại: ${candles[candles.length - 1].close.toFixed(2)}
 
     Nhiệm vụ:
-    1. Xác định xu hướng chính.
-    2. Đưa ra chiến lược DCA cụ thể bao gồm:
-       - Điểm mua tối ưu (Entry Point).
-       - Điểm chốt lời mục tiêu (Take Profit).
-       - Điểm cắt lỗ (Stop Loss) để quản trị rủi ro.
-    3. Khuyến nghị hành động: BUY (DCA), HOLD, hoặc WAIT.
+    1. Xác định xu hướng (Sentiment).
+    2. Đưa ra chiến lược DCA: Điểm mua (Entry), Chốt lời (TP), Cắt lỗ (SL).
+    3. Khuyến nghị: BUY (DCA), HOLD, hoặc WAIT.
     
     Phản hồi bằng JSON.`,
     config: {
@@ -39,9 +39,9 @@ export const analyzeMarketForDCA = async (
           reasoning: { type: Type.STRING },
           supportLevel: { type: Type.NUMBER },
           resistanceLevel: { type: Type.NUMBER },
-          entryPoint: { type: Type.NUMBER, description: "Giá mua đề xuất" },
-          takeProfit: { type: Type.NUMBER, description: "Giá chốt lời đề xuất" },
-          stopLoss: { type: Type.NUMBER, description: "Giá cắt lỗ đề xuất" }
+          entryPoint: { type: Type.NUMBER },
+          takeProfit: { type: Type.NUMBER },
+          stopLoss: { type: Type.NUMBER }
         },
         required: ['sentiment', 'recommendation', 'reasoning', 'supportLevel', 'resistanceLevel', 'entryPoint', 'takeProfit', 'stopLoss']
       }
@@ -49,9 +49,10 @@ export const analyzeMarketForDCA = async (
   });
 
   try {
-    return JSON.parse(response.text.trim()) as AnalysisResult;
+    const text = response.text || "";
+    return JSON.parse(text.trim()) as AnalysisResult;
   } catch (e) {
     console.error("Failed to parse AI response", e);
-    throw new Error("Analysis failed");
+    throw new Error("Analysis failed to parse");
   }
 };
