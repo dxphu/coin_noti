@@ -39,17 +39,14 @@ const App: React.FC = () => {
   const initApp = async () => {
     setLoading(true);
     try {
-      // 1. Lấy trạng thái từ Database
       const remoteConfig = await getAutoMonitorStatus();
       if (remoteConfig) {
         setIsAutoMonitoring(remoteConfig.is_auto_active);
       }
 
-      // 2. Lấy danh sách coin
       const topCoins = await getTopCoins();
       setCoins(topCoins);
       
-      // 3. Khôi phục coin đang chọn
       const targetCoinId = remoteConfig?.last_selected_coin || localStorage.getItem('last_selected_coin_id');
       const foundCoin = topCoins.find(c => c.id === targetCoinId);
       
@@ -120,64 +117,62 @@ const App: React.FC = () => {
     setTimeout(() => setNotificationStatus('idle'), 3000);
   };
 
-  const sqlSetup = `
--- 1. Bảng lưu tín hiệu
-create table if not column exists signals (
-  id bigint primary key generated always as identity,
-  coin_name text not null,
-  symbol text not null,
-  current_price numeric,
-  recommendation text,
-  sentiment text,
-  entry_point numeric,
-  take_profit numeric,
-  stop_loss numeric,
-  reasoning text,
-  support_level numeric,
-  resistance_level numeric,
-  created_at timestamptz default now()
+  const sqlSetup = `-- 1. Bảng lưu tín hiệu
+CREATE TABLE IF NOT EXISTS signals (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  coin_name TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  current_price NUMERIC,
+  recommendation TEXT,
+  sentiment TEXT,
+  entry_point NUMERIC,
+  take_profit NUMERIC,
+  stop_loss NUMERIC,
+  reasoning TEXT,
+  support_level NUMERIC,
+  resistance_level NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Bảng lưu cấu hình global cho Cron Job
-create table if not column exists configs (
-  id text primary key,
-  is_auto_active boolean default false,
-  last_selected_coin text,
-  updated_at timestamptz default now()
+-- 2. Bảng lưu cấu hình
+CREATE TABLE IF NOT EXISTS configs (
+  id TEXT PRIMARY KEY,
+  is_auto_active BOOLEAN DEFAULT FALSE,
+  last_selected_coin TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Chèn dữ liệu mẫu nếu chưa có
-insert into configs (id, is_auto_active) values ('global', false) on conflict (id) do nothing;
+-- 3. Khởi tạo cấu hình
+INSERT INTO configs (id, is_auto_active) 
+VALUES ('global', false) 
+ON CONFLICT (id) DO NOTHING;
 
--- 3. Policy (RLS) cho phép public
-alter table signals enable row level security;
-create policy "Public Access" on signals for all using (true) with check (true);
-alter table configs enable row level security;
-create policy "Public Access Config" on configs for all using (true) with check (true);
-`;
-
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white gap-4 text-center p-4">
-      <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-      <div className="font-black text-xl tracking-widest animate-pulse">SYNCING WITH SUPABASE...</div>
-      <p className="text-slate-500 text-[10px] uppercase tracking-widest">Đang tải cấu hình 24/7 từ database</p>
-    </div>
-  );
+-- 4. Quyền truy cập
+ALTER TABLE signals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Access" ON signals FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE configs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Access Config" ON configs FOR ALL USING (true) WITH CHECK (true);`;
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Sidebar */}
       <aside className="w-full md:w-72 bg-slate-900 border-r border-slate-800 p-4 flex flex-col h-screen overflow-hidden">
         <div className="flex items-center gap-2 mb-8 px-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-600/20">D</div>
           <h1 className="text-xl font-bold tracking-tight uppercase">DCA Bot 24/7</h1>
         </div>
 
+        <button 
+          onClick={() => setShowDbHelp(true)}
+          className="mb-6 mx-2 py-3 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 rounded-xl text-[10px] font-black border border-yellow-500/20 flex items-center justify-center gap-2 transition-all"
+        >
+          ⚠️ SETUP DATABASE (SQL)
+        </button>
+
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2 flex justify-between">
           <span>Binance Live</span>
           {dbStatus !== 'idle' && (
             <span className={`text-[10px] ${dbStatus === 'saving' ? 'text-yellow-500' : dbStatus === 'success' ? 'text-green-500' : 'text-red-500'}`}>
-              {dbStatus === 'saving' ? 'Updating DB...' : dbStatus === 'success' ? 'Synced' : 'Error'}
+              {dbStatus === 'saving' ? 'Syncing...' : dbStatus === 'success' ? 'Ready' : 'Error'}
             </span>
           )}
         </h2>
@@ -208,11 +203,7 @@ create policy "Public Access Config" on configs for all using (true) with check 
         </div>
 
         <div className="pt-4 border-t border-slate-800">
-           <div className="flex justify-between items-center px-2 mb-3">
-             <h3 className="text-[10px] font-bold text-slate-500 uppercase">Lịch sử tín hiệu</h3>
-             <button onClick={() => setShowDbHelp(!showDbHelp)} className="text-[10px] text-blue-500 hover:underline">DB SQL</button>
-           </div>
-           
+           <h3 className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-3">Lịch sử tín hiệu</h3>
            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
               {history.map((sig, idx) => (
                 <div key={idx} className="p-2 bg-slate-800/50 rounded-lg border border-slate-800 text-[10px]">
@@ -234,15 +225,13 @@ create policy "Public Access Config" on configs for all using (true) with check 
              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Cloud Worker Active</span>
+                  <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Vercel Cron Active</span>
                 </div>
-                <p className="text-[8px] text-slate-500 text-center mt-1 uppercase">Hệ thống đang chạy ngầm trên Vercel</p>
              </div>
            )}
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 bg-slate-950 overflow-y-auto custom-scrollbar p-6">
         <div className="max-w-5xl mx-auto space-y-6">
           
@@ -250,19 +239,19 @@ create policy "Public Access Config" on configs for all using (true) with check 
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold">SQL Setup (Cho 24/7)</h3>
+                  <h3 className="text-xl font-bold">SQL Editor Script</h3>
                   <button onClick={() => setShowDbHelp(false)} className="text-slate-500 hover:text-white">✕</button>
                 </div>
-                <p className="text-xs text-slate-400 mb-4 uppercase font-bold tracking-widest">Chạy lệnh này trong Supabase SQL Editor:</p>
+                <p className="text-sm text-slate-400 mb-6 italic">Hãy Copy đoạn mã dưới đây và dán vào phần <b>SQL Editor</b> trong Supabase của bạn, sau đó nhấn <b>Run</b>.</p>
                 <div className="relative">
-                  <pre className="bg-black/50 p-4 rounded-xl text-[10px] font-mono overflow-x-auto text-green-500 border border-slate-800 max-h-60 overflow-y-auto">
+                  <pre className="bg-black/50 p-6 rounded-2xl text-[11px] font-mono overflow-x-auto text-green-500 border border-slate-800 max-h-80 overflow-y-auto custom-scrollbar">
                     {sqlSetup}
                   </pre>
                   <button 
-                    onClick={() => navigator.clipboard.writeText(sqlSetup).then(() => alert('Copied!'))}
-                    className="absolute top-2 right-2 bg-slate-800 px-3 py-1 rounded text-[10px] font-bold"
+                    onClick={() => { navigator.clipboard.writeText(sqlSetup); alert('Đã copy!'); }}
+                    className="absolute top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow-lg"
                   >
-                    COPY
+                    COPY SCRIPT
                   </button>
                 </div>
               </div>
@@ -318,7 +307,7 @@ create policy "Public Access Config" on configs for all using (true) with check 
 
             <div className="crypto-card rounded-2xl p-6 border-t-2 border-t-blue-600">
                <h3 className="font-bold text-slate-300 mb-6 uppercase text-xs tracking-widest">Telegram Config</h3>
-               <form onSubmit={(e) => { e.preventDefault(); localStorage.setItem('tg_config', JSON.stringify(tgConfig)); alert('Cấu hình đã lưu cục bộ!'); }} className="space-y-4">
+               <form onSubmit={(e) => { e.preventDefault(); localStorage.setItem('tg_config', JSON.stringify(tgConfig)); alert('Cấu hình đã lưu!'); }} className="space-y-4">
                  <div className="space-y-1">
                    <p className="text-[10px] text-slate-500 font-bold">BOT TOKEN</p>
                    <input 
@@ -363,7 +352,7 @@ create policy "Public Access Config" on configs for all using (true) with check 
                     {analysis.recommendation}
                   </div>
                </div>
-
+ 
                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 text-center">
                   <div className="p-8 bg-slate-900/60 rounded-[2.5rem] border border-slate-800">
                     <p className="text-[10px] uppercase font-black text-slate-500 mb-3 tracking-[0.3em]">Entry Point</p>
