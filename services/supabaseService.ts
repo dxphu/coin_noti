@@ -9,7 +9,6 @@ export const saveSignalToSupabase = async (
   analysis: AnalysisResult
 ): Promise<boolean> => {
   const endpoint = `${SUPABASE_URL}/rest/v1/signals`;
-  
   const payload = {
     coin_name: coin.name,
     symbol: coin.symbol.toUpperCase(),
@@ -36,7 +35,6 @@ export const saveSignalToSupabase = async (
       },
       body: JSON.stringify(payload)
     });
-
     return response.ok;
   } catch (error) {
     console.error("Supabase Save Error:", error);
@@ -46,7 +44,6 @@ export const saveSignalToSupabase = async (
 
 export const getRecentSignals = async (limit = 10): Promise<any[]> => {
   const endpoint = `${SUPABASE_URL}/rest/v1/signals?select=*&order=created_at.desc&limit=${limit}`;
-  
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
@@ -55,11 +52,52 @@ export const getRecentSignals = async (limit = 10): Promise<any[]> => {
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       }
     });
-
     if (!response.ok) return [];
     return await response.json();
   } catch (error) {
-    console.error("Supabase Fetch Error:", error);
     return [];
+  }
+};
+
+// Cập nhật cấu hình Bật/Tắt tự động lên Database
+export const updateAutoMonitorStatus = async (status: boolean, coinId: string): Promise<boolean> => {
+  const endpoint = `${SUPABASE_URL}/rest/v1/configs?id=eq.global`;
+  const payload = { 
+    is_auto_active: status, 
+    last_selected_coin: coinId,
+    updated_at: new Date().toISOString() 
+  };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(payload)
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
+
+export const getAutoMonitorStatus = async (): Promise<{is_auto_active: boolean, last_selected_coin: string} | null> => {
+  const endpoint = `${SUPABASE_URL}/rest/v1/configs?id=eq.global&select=*`;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      }
+    });
+    const data = await response.json();
+    return data[0] || null;
+  } catch (error) {
+    return null;
   }
 };
