@@ -6,7 +6,7 @@ export const analyzeMarketForDCA = async (
   coinName: string, 
   candles: CandleData[]
 ): Promise<AnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: "AIzaSyADWfQXkQeleCdFu56oeHC3YD-xnWb2lMk" });
+  const ai = new GoogleGenAI({ apiKey: "AIzaSyCvmudIm4PgJ1DgMfA7wWbg0ZwpLZ3gOgk" });
   
   // Lấy dữ liệu 100 nến nhưng tập trung vào 20 nến cuối để soi mô hình
   const dataString = candles
